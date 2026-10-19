@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sorteo Azzorti - Ruleta Aleatoria</title>
+    <!-- Librería SheetJS para procesar Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --brand-yellow: #FFD700;
+            --brand-yellow-hover: #e6c200;
+            --dark-bg: #121212;
+            --card-bg: #1e1e1e;
+            --text-light: #ffffff;
+            --text-muted: #b0b0b0;
+            --border-color: #333333;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Montserrat', 'Segoe UI', Arial, sans-serif;
+            background-color: var(--dark-bg);
+            color: var(--text-light);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .brand-title {
+            font-size: 42px;
+            font-weight: 900;
+            letter-spacing: 4px;
+            color: var(--brand-yellow);
+            text-transform: uppercase;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 16px;
+            margin-top: 5px;
+        }
+
+        .container {
+            background-color: var(--card-bg);
+            border: 2px solid var(--brand-yellow);
+            border-radius: 20px;
+            padding: 30px;
+            width: 100%;
+            max-width: 650px;
+            box-shadow: 0 10px 30px rgba(255, 215, 0, 0.15);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .upload-container {
+            width: 100%;
+            border: 2px dashed var(--brand-yellow);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            background-color: #262626;
+            margin-bottom: 20px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .btn-upload {
+            background-color: var(--brand-yellow);
+            color: #000;
+            padding: 12px 24px;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            display: inline-block;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 14px;
+        }
+
+        .btn-upload:hover {
+            background-color: var(--brand-yellow-hover);
+            transform: scale(1.03);
+        }
+
+        #file-info {
+            margin-top: 10px;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        /* Ruleta */
+        .roulette-wrapper {
+            position: relative;
+            margin: 20px 0;
+            width: 320px;
+            height: 320px;
+        }
+
+        .pointer {
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-top: 25px solid var(--brand-yellow);
+            z-index: 10;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));
+        }
+
+        canvas {
+            border-radius: 50%;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.2);
+            border: 4px solid var(--brand-yellow);
+        }
+
+        /* Botón de girar */
+        .btn-spin {
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            color: #000;
+            border: none;
+            padding: 15px 40px;
+            font-size: 20px;
+            font-weight: 800;
+            border-radius: 50px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-top: 15px;
+            box-shadow: 0 5px 15px rgba(255, 215, 0, 0.4);
+            transition: all 0.2s ease;
+        }
+
+        .btn-spin:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(255, 215, 0, 0.6);
+        }
+
+        .btn-spin:disabled {
+            background: #444;
+            color: #888;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        /* Resultado */
+        .winner-box {
+            margin-top: 25px;
+            padding: 15px;
+            width: 100%;
+            text-align: center;
+            border-radius: 10px;
+            background-color: #121212;
+            border: 1px solid var(--brand-yellow);
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .winner-text {
+            font-size: 22px;
+            font-weight: bold;
+            color: var(--brand-yellow);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="brand-title">AZZORTI</div>
+        <div class="subtitle">Gran Sorteo de Participantes</div>
+    </div>
+
+    <div class="container">
+        <div class="upload-container">
+            <label for="excel-file" class="btn-upload">
+                📂 Cargar Excel
+            </label>
+            <input type="file" id="excel-file" accept=".xlsx, .xls">
+            <div id="file-info">Carga tu lista para comenzar</div>
+        </div>
+
+        <div class="roulette-wrapper">
+            <div class="pointer"></div>
+            <canvas id="roulette" width="320" height="320"></canvas>
+        </div>
+
+        <button id="btn-spin" class="btn-spin" disabled onclick="spinRoulette()">¡Girar Ruleta!</button>
+
+        <div class="winner-box">
+            <div id="winner-text" class="winner-text">Carga un archivo Excel para activar la ruleta</div>
+        </div>
+    </div>
+
+    <script>
+        let participants = [];
+        const canvas = document.getElementById('roulette');
+        const ctx = canvas.getContext('2d');
+        let currentAngle = 0;
+        let isSpinning = false;
+
+        // Dibujar ruleta inicial vacía
+        drawRoulette(['Azzorti', 'Sorteo', 'Azzorti', 'Sorteo']);
+
+        document.getElementById('excel-file').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            document.getElementById('file-info').textContent = `Archivo: ${file.name}`;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(firstSheet, {header: 1});
+
+                participants = [];
+                rows.forEach(row => {
+                    if (row[0] !== undefined && row[0] !== null && String(row[0]).trim() !== "") {
+                        participants.push(String(row[0]).trim());
+                    }
+                });
+
+                // Omitir encabezado si existe
+                if (participants.length > 0 && ['nombre', 'participante', 'participantes', 'lista'].includes(participants[0].toLowerCase())) {
+                    participants.shift();
+                }
+
+                if (participants.length > 0) {
+                    document.getElementById('btn-spin').disabled = false;
+                    document.getElementById('winner-text').textContent = `¡${participants.length} participantes listos! Presiona "Girar Ruleta".`;
+                    drawRoulette(participants);
+                } else {
+                    document.getElementById('btn-spin').disabled = true;
+                    document.getElementById('winner-text').textContent = "No se encontraron datos en la columna A del Excel.";
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        function drawRoulette(items) {
+            const numItems = items.length;
+            const arcSize = (2 * Math.PI) / numItems;
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = canvas.width / 2 - 5;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let i = 0; i < numItems; i++) {
+                const angle = currentAngle + i * arcSize;
+                
+                // Alternar colores Amarillo y Negro
+                ctx.fillStyle = i % 2 === 0 ? '#FFD700' : '#121212';
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, angle, angle + arcSize);
+                ctx.lineTo(centerX, centerY);
+                ctx.fill();
+
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // Texto de cada sección
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                ctx.rotate(angle + arcSize / 2);
+                ctx.textAlign = "right";
+                ctx.fillStyle = i % 2 === 0 ? '#000000' : '#FFD700';
+                ctx.font = 'bold 12px Montserrat, sans-serif';
+
+                // Truncar texto si es muy largo
+                let text = items[i];
+                if (text.length > 12) text = text.substring(0, 10) + '..';
+
+                ctx.fillText(text, radius - 15, 4);
+                ctx.restore();
+            }
+
+            // Centro decorativo de la ruleta
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 25, 0, 2 * Math.PI);
+            ctx.fillStyle = '#1e1e1e';
+            ctx.fill();
+            ctx.strokeStyle = '#FFD700';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            ctx.fillStyle = '#FFD700';
+            ctx.font = 'bold 10px Montserrat, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('AZZORTI', centerX, centerY);
+        }
+
+        function spinRoulette() {
+            if (isSpinning || participants.length === 0) return;
+
+            isSpinning = true;
+            document.getElementById('btn-spin').disabled = true;
+            document.getElementById('winner-text').textContent = "¡Girando ruleta...";
+
+            let spinTime = 0;
+            const totalSpinTime = 4000 + Math.random() * 2000; // Entre 4 y 6 segundos
+            let spinSpeed = Math.random() * 0.3 + 0.4; // Velocidad inicial
+
+            function animate() {
+                spinTime += 20;
+
+                if (spinTime >= totalSpinTime) {
+                    isSpinning = false;
+                    document.getElementById('btn-spin').disabled = false;
+                    calculateWinner();
+                    return;
+                }
+
+                // Desaceleración progresiva
+                const progress = spinTime / totalSpinTime;
+                const currentSpeed = spinSpeed * (1 - Math.pow(progress, 2));
+
+                currentAngle += currentSpeed;
+                drawRoulette(participants);
+
+                requestAnimationFrame(animate);
+            }
+
+            animate();
+        }
+
+        function calculateWinner() {
+            const numItems = participants.length;
+            const arcSize = (2 * Math.PI) / numItems;
+            
+            // La flecha apuntador está arriba (3*Math.PI / 2 en canvas)
+            let normalizedAngle = (1.5 * Math.PI - currentAngle) % (2 * Math.PI);
+            if (normalizedAngle < 0) normalizedAngle += 2 * Math.PI;
+
+            const winnerIndex = Math.floor(normalizedAngle / arcSize);
+            const winnerName = participants[winnerIndex];
+
+            document.getElementById('winner-text').textContent = `👑 ¡GANADOR(A): ${winnerName}! 👑`;
+        }
+    </script>
+</body>
+</html>
